@@ -2,109 +2,86 @@
 # Cookbook Name:: tomcat
 # Recipe:: default
 #
-# Copyright 2010, Chef Software, Inc.
-#
-# Licensed under the Apache License, Version 2.0 (the "License");
-# you may not use this file except in compliance with the License.
-# You may obtain a copy of the License at
-#
-#     http://www.apache.org/licenses/LICENSE-2.0
-#
-# Unless required by applicable law or agreed to in writing, software
-# distributed under the License is distributed on an "AS IS" BASIS,
-# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-# See the License for the specific language governing permissions and
-# limitations under the License.
+# Copyright 2013, Basilio Briceno
 #
 
-# required for the secure_password method from the openssl cookbook
-::Chef::Recipe.send(:include, Opscode::OpenSSL::Password)
-
-
-if node['tomcat']['base_version'].to_i == 7
-  if platform_family?('rhel') and node[:platform_version].to_i < 7
-    include_recipe 'yum-epel'
+# Install Java 7
+if node['java']['install'] == 'remote'
+  # install from repository
+  execute "install-java-remote" do
+    command "yum -y install java7"
+    action :run
+  end
+elsif node['java']['install'] == 'local'
+  # install from local RPM file
+  cookbook_file "#{Chef::Config[:file_cache_path]}/jre-7u45-linux-x64.rpm" do
+    source "jre-7u45-linux-x64.rpm"
+    mode 0664
+    owner "vagrant"
+    group "vagrant"
+    not_if { ::File.exists?("#{Chef::Config[:file_cache_path]}/jre-7u45-linux-x64.rpm") }
+  end
+  execute "install-java-local" do
+    command "rpm -i #{Chef::Config[:file_cache_path]}/jre-7u45-linux-x64.rpm"
+    action :run
   end
 end
 
-node['tomcat']['packages'].each do |pkg|
-  package pkg do
-    action :install
+tomcat_temp_path="#{Chef::Config[:file_cache_path]}/apache-tomcat-#{node['tomcat']['version']}.tar.gz"
+
+# Download Tomcat 8
+if node['tomcat']['install'] == 'remote'
+  remote_file tomcat_temp_path do
+    checksum node['tomcat']['checksum']
+    source "#{node['tomcat']['mirror']}/v#{node['tomcat']['version']}/bin/apache-tomcat-#{node['tomcat']['version']}.tar.gz"
+    mode "0664"
+    not_if { ::File.exists?(tomcat_temp_path) }
+  end
+elsif node['tomcat']['install'] == 'local'
+  cookbook_file tomcat_temp_path do
+    source "apache-tomcat-#{node['tomcat']['version']}.tar.gz"
+    mode 0664
+    owner "vagrant"
+    group "vagrant"
+    not_if { ::File.exists?(tomcat_temp_path) }
   end
 end
 
-node['tomcat']['deploy_manager_packages'].each do |pkg|
-  package pkg do
-    action :install
-  end
+# Install Tomcat
+execute "tomcat-install" do
+  command "mkdir #{node['tomcat']['directory']};" +
+          "tar xfz #{Chef::Config[:file_cache_path]}/apache-tomcat-#{node['tomcat']['version']}.tar.gz " +
+          "--directory=#{node['tomcat']['directory']};" +
+          "echo \"CATALINA_HOME=#{node['tomcat']['directory']}/apache-tomcat-#{node['tomcat']['version']}\" >> /etc/environment;" +
+          "chown -R #{node['tomcat']['username']}.#{node['tomcat']['username']} #{node['tomcat']['directory']}/apache-tomcat-#{node['tomcat']['version']}"
+  action :run
+  not_if { ::File.exists?("#{node['tomcat']['directory']}/apache-tomcat-#{node['tomcat']['version']}") }
 end
 
-unless node['tomcat']['deploy_manager_apps']
-  directory "#{node['tomcat']['webapp_dir']}/manager" do
-    action :delete
-    recursive true
-  end
-  file "#{node['tomcat']['config_dir']}/Catalina/localhost/manager.xml" do
-    action :delete
-  end
-  directory "#{node['tomcat']['webapp_dir']}/host-manager" do
-    action :delete
-    recursive true
-  end
-  file "#{node['tomcat']['config_dir']}/Catalina/localhost/host-manager.xml" do
-    action :delete
-  end
+# Add Tomcat roles and users
+template "#{node['tomcat']['directory']}/apache-tomcat-#{node['tomcat']['version']}/conf/tomcat-users.xml" do
+  source "tomcat-users.xml.erb"
+  owner "vagrant"
+  group "vagrant"
+  mode "0600"
 end
 
-node.set_unless['tomcat']['keystore_password'] = secure_password
-node.set_unless['tomcat']['truststore_password'] = secure_password
-
-if node['tomcat']['run_base_instance']
-  tomcat_instance "base" do
-    port node['tomcat']['port']
-    proxy_port node['tomcat']['proxy_port']
-    ssl_port node['tomcat']['ssl_port']
-    ssl_proxy_port node['tomcat']['ssl_proxy_port']
-    ajp_port node['tomcat']['ajp_port']
-    shutdown_port node['tomcat']['shutdown_port']
-  end
+# Add Tomcat port to iptables
+template "/etc/sysconfig/iptables" do
+  source "iptables.erb"
+  owner "root"
+  group "root"
+  mode "0600"
 end
 
-node['tomcat']['instances'].each do |name, attrs|
-  tomcat_instance "#{name}" do
-    port attrs['port']
-    proxy_port attrs['proxy_port']
-    ssl_port attrs['ssl_port']
-    ssl_proxy_port attrs['ssl_proxy_port']
-    ajp_port attrs['ajp_port']
-    shutdown_port attrs['shutdown_port']
-    config_dir attrs['config_dir']
-    log_dir attrs['log_dir']
-    work_dir attrs['work_dir']
-    context_dir attrs['context_dir']
-    webapp_dir attrs['webapp_dir']
-    catalina_options attrs['catalina_options']
-    java_options attrs['java_options']
-    use_security_manager attrs['use_security_manager']
-    authbind attrs['authbind']
-    max_threads attrs['max_threads']
-    ssl_max_threads attrs['ssl_max_threads']
-    ssl_cert_file attrs['ssl_cert_file']
-    ssl_key_file attrs['ssl_key_file']
-    ssl_chain_files attrs['ssl_chain_files']
-    keystore_file attrs['keystore_file']
-    keystore_type attrs['keystore_type']
-    truststore_file attrs['truststore_file']
-    truststore_type attrs['truststore_type']
-    certificate_dn attrs['certificate_dn']
-    loglevel attrs['loglevel']
-    tomcat_auth attrs['tomcat_auth']
-    user attrs['user']
-    group attrs['group']
-    home attrs['home']
-    base attrs['base']
-    tmp_dir attrs['tmp_dir']
-    lib_dir attrs['lib_dir']
-    endorsed_dir attrs['endorsed_dir']
-  end
+# Restart iptables
+service "iptables" do
+  action :restart
+end
+
+# Start Tomcat
+execute "tomcat-start" do
+  command "#{node['tomcat']['directory']}/apache-tomcat-#{node['tomcat']['version']}/bin/catalina.sh start"
+  user "vagrant"
+  action :run
 end
