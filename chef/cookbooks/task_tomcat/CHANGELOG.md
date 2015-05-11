@@ -1,11 +1,11 @@
-myorg_apache CHANGELOG
+task_tomcat CHANGELOG
 ======================
 
-This file is used to list changes made in each version of the myorg_apache cookbook.
+This file is used to list changes made in each version of the task_tomcat cookbook.
 
 0.1.0
 -----
-- [your_name] - Initial release of myorg_apache
+- [your_name] - Initial release of task_tomcat
 
 - - -
 Check the [Markdown Syntax Guide](http://daringfireball.net/projects/markdown/syntax) for help with Markdown.

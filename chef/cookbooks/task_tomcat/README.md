@@ -1,4 +1,4 @@
-myorg_apache Cookbook
+task_tomcat Cookbook
 =====================
 TODO: Enter the cookbook description here.
 
@@ -11,14 +11,14 @@ TODO: List your cookbook requirements. Be sure to include any requirements this 
 
 e.g.
 #### packages
-- `toaster` - myorg_apache needs toaster to brown your bagel.
+- `toaster` - task_tomcat needs toaster to brown your bagel.
 
 Attributes
 ----------
 TODO: List your cookbook attributes here.
 
 e.g.
-#### myorg_apache::default
+#### task_tomcat::default
 <table>
   <tr>
     <th>Key</th>
@@ -27,7 +27,7 @@ e.g.
     <th>Default</th>
   </tr>
   <tr>
-    <td><tt>['myorg_apache']['bacon']</tt></td>
+    <td><tt>['task_tomcat']['bacon']</tt></td>
     <td>Boolean</td>
     <td>whether to include bacon</td>
     <td><tt>true</tt></td>
@@ -36,17 +36,17 @@ e.g.
 
 Usage
 -----
-#### myorg_apache::default
+#### task_tomcat::default
 TODO: Write usage instructions for each cookbook.
 
 e.g.
-Just include `myorg_apache` in your node's `run_list`:
+Just include `task_tomcat` in your node's `run_list`:
 
 ```json
 {
   "name":"my_node",
   "run_list": [
-    "recipe[myorg_apache]"
+    "recipe[task_tomcat]"
   ]
 }
 ```
